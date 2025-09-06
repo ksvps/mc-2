@@ -45,9 +45,6 @@ jobs:
           else
             echo "No backup found, starting fresh."
           fi
-      - name: Start Playitgg Container
-        run: |
-          docker-compose up -d
           
       # 7. Create Docker Compose file
       - name: Create Docker Compose for PufferPanel
