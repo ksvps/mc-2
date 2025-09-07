@@ -50,12 +50,6 @@ jobs:
 
       - name: Start Panel
         run: |
-          set -e
-          if [ -d "pufferpanel" ]; then
-            echo "PufferPanel folder found, starting with docker-compose..."
-            docker-compose -f pufferpanel/docker-compose.yml up -d
-          else
-            echo "PufferPanel folder not found, creating..." || true
             mkdir -p pufferpanel
 
             # Create docker-compose.yml WITHOUT heredoc (avoids EOF indentation problems)
