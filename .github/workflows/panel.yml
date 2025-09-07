@@ -36,42 +36,42 @@ jobs:
 
       - name: Restore backup and start panel
         run: |
-          if ls pane-data-*.part 1> /dev/null 2>&1; then
-            echo "Found backup parts. Reconstructing..."
-            cat pane-data-*.part > pane-data.tar.gz
-            rm -rf pufferpanel
-            mkdir -p pufferpanel
-            tar -xzf pane-data.tar.gz -C .
-            echo "Backup restored successfully."
-            cd pufferpanel
-            docker-compose up -d
-          else
-            echo "No backup found. Starting fresh."
-            mkdir -p pufferpanel
-            cat > pufferpanel/docker-compose.yml <<'EOF'
-            version: '3.8'
-            services:
-              pufferpanel:
-                image: pufferpanel/pufferpanel:latest
-                container_name: pufferpanel
-                restart: unless-stopped
-                ports:
-                  - "8080:8080"
-                  - "5657:5657"
-                volumes:
-                  - ./config:/etc/pufferpanel
-                  - ./data:/var/lib/pufferpanel
-                environment:
-                  PUFFER_ADMIN_EMAIL: "admin@example.com"
-            EOF
-            cd pufferpanel
-            docker-compose up -d
-            docker exec pufferpanel /pufferpanel/pufferpanel user add \
-              --name kshosting \
-              --email kshosting@ksmail.com \
-              --password "kshosting@55" \
-              --admin || echo "User may already exist"
-          fi
+         if ls pane-data-*.part 1> /dev/null 2>&1; then
+         echo "Found backup parts. Reconstructing..."
+         cat pane-data-*.part > pane-data.tar.gz
+          rm -rf pufferpanel
+         mkdir -p pufferpanel
+         tar -xzf pane-data.tar.gz -C .
+         echo "Backup restored successfully."
+         cd pufferpanel
+         docker-compose up -d
+         else
+         echo "No backup found. Starting fresh."
+         mkdir -p pufferpanel
+         cat > pufferpanel/docker-compose.yml <<'EOF'
+         version: '3.8'
+         services:
+           pufferpanel:
+             image: pufferpanel/pufferpanel:latest
+             container_name: pufferpanel
+             restart: unless-stopped
+             ports:
+               - "8080:8080"
+               - "5657:5657"
+             volumes:
+               - ./config:/etc/pufferpanel
+               - ./data:/var/lib/pufferpanel
+             environment:
+               PUFFER_ADMIN_EMAIL: "admin@example.com"
+         EOF
+         cd pufferpanel
+         docker-compose up -d
+         docker exec pufferpanel /pufferpanel/pufferpanel user add \
+         --name kshosting \
+         --email kshosting@ksmail.com \
+         --password "kshosting@55" \
+         --admin || echo "User may already exist"
+         fi
 
       # --- Install tmate ---
       - name: Install tmate
