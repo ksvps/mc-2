@@ -47,7 +47,6 @@ jobs:
           else
             echo "No backup found. Starting fresh."
           fi
-
       - name: Start Panel
         run: |
             mkdir -p pufferpanel
