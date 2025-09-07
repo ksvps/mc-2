@@ -49,27 +49,28 @@ jobs:
             echo "No backup found. Starting fresh."
             mkdir -p pufferpanel
             cat > pufferpanel/docker-compose.yml <<'EOF'
-version: '3.8'
-services:
-  pufferpanel:
-    image: pufferpanel/pufferpanel:latest
-    container_name: pufferpanel
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./config:/etc/pufferpanel
-      - ./data:/var/lib/pufferpanel
-    environment:
-      PUFFER_ADMIN_EMAIL: "admin@example.com"
-EOF
-            docker-compose -f pufferpanel/docker-compose.yml up -d
-            docker exec pufferpanel pufferpanel user add \
-            --name kshosting \
-            --email kshosting@ksmail.com \
-            --password kshosting@55 \
-            --admin || echo "User may already exist"
+            version: '3.8'
+            services:
+              pufferpanel:
+                image: pufferpanel/pufferpanel:latest
+                container_name: pufferpanel
+                restart: unless-stopped
+                ports:
+                  - "8080:8080"
+                  - "5657:5657"
+                volumes:
+                  - ./config:/etc/pufferpanel
+                  - ./data:/var/lib/pufferpanel
+                environment:
+                  PUFFER_ADMIN_EMAIL: "admin@example.com"
+            EOF
+            cd pufferpanel
+            docker-compose up -d
+            docker exec pufferpanel /pufferpanel/pufferpanel user add \
+              --name kshosting \
+              --email kshosting@ksmail.com \
+              --password "kshosting@55" \
+              --admin || echo "User may already exist"
           fi
 
       # --- Install tmate ---
@@ -83,19 +84,19 @@ EOF
             echo "tmate is already installed."
           fi
 
-      # --- Ngrok ---
       - name: Ngrok
         run: |
           docker pull ngrok/ngrok
-          docker run --net=host -e NGROK_AUTHTOKEN=32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4 ngrok/ngrok:latest http 8080
-
+          docker run --net=host -it -e NGROK_AUTHTOKEN=32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4 ngrok/ngrok:latest http --url=undefined 80
+          ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080          
+      
       # --- Start tmate session ---
       - name: Start tmate session
         run: |
-          tmate -S /tmp/tmate.sock new-session -d
-          tmate -S /tmp/tmate.sock wait tmate-ready
-          tmate -S /tmp/tmate.sock display -p "#{tmate_ssh}"
-          sleep 20000
+            tmate -S /tmp/tmate.sock new-session -d
+            tmate -S /tmp/tmate.sock wait tmate-ready
+            tmate -S /tmp/tmate.sock display -p "#{tmate_ssh}"
+            sleep 20000
 
       # --- Backup PufferPanel Data ---
       - name: Backup Panel Data
