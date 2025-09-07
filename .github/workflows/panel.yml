@@ -1,4 +1,4 @@
-name: PufferPanelg
+name: PufferPanel
 
 on:
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
           fileName: "pane-data-*.part"
           out-file-path: "."
 
-      - name: Restore backup and start panel
+      - name: Restore backup
         run: |
           if ls pane-data-*.part 1> /dev/null 2>&1; then
             echo "Found backup parts. Reconstructing..."
@@ -43,60 +43,61 @@ jobs:
             mkdir -p pufferpanel
             tar -xzf pane-data.tar.gz -C .
             echo "Backup restored successfully."
-            cd pufferpanel
-            docker-compose up -d
           else
-            echo "No backup found. Starting fresh."
-            mkdir -p pufferpanel         
+            echo "No backup found. Starting fresh."         
           fi
       
       # --- Install tmate ---
-      - name: Install tmate
-        run: |
-          cat > pufferpanel/docker-compose.yml <<'EOF'
-          version: '3.8'
-          services:
-            pufferpanel:
-              image: pufferpanel/pufferpanel:latest
-              container_name: pufferpanel
-              restart: unless-stopped
-              ports:
-                - "8080:8080"
-                - "5657:5657"
-              volumes:
-                - ./config:/etc/pufferpanel
-                - ./data:/var/lib/pufferpanel
-              environment:
-                PUFFER_ADMIN_EMAIL: "admin@example.com"
-          EOF 
-          docker-compose up -d          
-          docker exec pufferpanel /pufferpanel/pufferpanel user add \
-          --name kshosting \
-          --email kshosting@ksmail.com \
-          --password kshosting@55 \
-          --admin || echo "User may already exist" 
-      
-      # --- Install tmate ---
-      - name: Install tmate
-        run: |
-          if ! command -v tmate >/dev/null 2>&1; then
-            echo "tmate not found. Installing..."
-            sudo apt-get update
-            sudo apt-get install -y tmate
-          else
-            echo "tmate is already installed."
-          fi
+      - name: Start Panel
+  run: |
+    if [ -d "pufferpanel" ]; then
+      echo "PufferPanel folder found, starting with docker-compose..."
+      docker-compose -f pufferpanel/docker-compose.yml up -d
+    else
+      echo "PufferPanel folder not found, creating..."
+      mkdir -p pufferpanel
+      cat > pufferpanel/docker-compose.yml <<'EOF'
+      version: '3.8'
+      services:
+        pufferpanel:
+          image: pufferpanel/pufferpanel:latest
+          container_name: pufferpanel
+          restart: unless-stopped
+          ports:
+            - "8080:8080"
+            - "5657:5657"
+          volumes:
+            - ./config:/etc/pufferpanel
+            - ./data:/var/lib/pufferpanel
+          environment:
+            PUFFER_ADMIN_EMAIL: "admin@example.com"
+      EOF
 
-      # --- Start tmate session ---
-      - name: Start tmate session
+      # Start container
+      docker-compose -f pufferpanel/docker-compose.yml up -d
+
+      # Wait for container to initialize
+      sleep 10
+
+      # Create admin user (ignore error if already exists)
+      docker exec pufferpanel /pufferpanel/pufferpanel user add \
+        --name kshosting \
+        --email kshosting@ksmail.com \
+        --password "kshosting@55" \
+        --admin || echo "User may already exist"
+    fi 
+      
+      # --- Install tmate ---
+      - name: Ngrok
         run: |
-            tmate -S /tmp/tmate.sock new-session -d
-            tmate -S /tmp/tmate.sock wait tmate-ready
-            echo "SSH access:"
-            tmate -S /tmp/tmate.sock display -p "#{tmate_ssh}"
-            echo "Web access:"
-            tmate -S /tmp/tmate.sock display -p "#{tmate_web}"
-            sleep 20000
+          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+  && echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
+  | sudo tee /etc/apt/sources.list.d/ngrok.list \
+  && sudo apt update \
+  && sudo apt install ngrok
+           ngrok config add-authtoken 32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4
+           ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080
 
       # --- Backup PufferPanel Data ---
       - name: Backup Panel Data
