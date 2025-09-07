@@ -53,19 +53,19 @@ jobs:
           cd pufferpanel
           docker-compose up -d
          
-      - name: Ngrok
+      - name: Install tmate
+        run: sudo apt-get update && sudo apt-get install -y tmate
+        
+      # 11. Run LocalTunnel (keep alive)
+      - name: Start tmate session
         run: |
-          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-            | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
-            | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install -y ngrok
-          # Put your ngrok authtoken in repo Secrets as NGROK_AUTHTOKEN
-          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
-            ngrok config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}" || true
-          fi
-          # Run in background (nohup so it doesn't block the step)
-          nohup ngrok http 8080 --log=stdout &>/tmp/ngrok.log &
+          tmate -S /tmp/tmate.sock new-session -d
+          tmate -S /tmp/tmate.sock wait tmate-ready
+          echo "SSH session:"
+          tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+          echo "Web session:"
+          tmate -S /tmp/tmate.sock display -p '#{tmate_web}'
+          sleep 20000
 
       - name: Backup Panel Data
         if: always()
