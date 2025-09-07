@@ -46,62 +46,61 @@ jobs:
           else
             echo "No backup found. Starting fresh."         
           fi
-      
-      # --- Install tmate ---
+
+      # --- Start Panel ---
       - name: Start Panel
-  run: |
-    if [ -d "pufferpanel" ]; then
-      echo "PufferPanel folder found, starting with docker-compose..."
-      docker-compose -f pufferpanel/docker-compose.yml up -d
-    else
-      echo "PufferPanel folder not found, creating..."
-      mkdir -p pufferpanel
-      cat > pufferpanel/docker-compose.yml <<'EOF'
-      version: '3.8'
-      services:
-        pufferpanel:
-          image: pufferpanel/pufferpanel:latest
-          container_name: pufferpanel
-          restart: unless-stopped
-          ports:
-            - "8080:8080"
-            - "5657:5657"
-          volumes:
-            - ./config:/etc/pufferpanel
-            - ./data:/var/lib/pufferpanel
-          environment:
-            PUFFER_ADMIN_EMAIL: "admin@example.com"
-      EOF
+        run: |
+          if [ -d "pufferpanel" ]; then
+            echo "PufferPanel folder found, starting with docker-compose..."
+            docker-compose -f pufferpanel/docker-compose.yml up -d
+          else
+            echo "PufferPanel folder not found, creating..."
+            mkdir -p pufferpanel
+            cat > pufferpanel/docker-compose.yml <<'EOF'
+version: '3.8'
+services:
+  pufferpanel:
+    image: pufferpanel/pufferpanel:latest
+    container_name: pufferpanel
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "5657:5657"
+    volumes:
+      - ./config:/etc/pufferpanel
+      - ./data:/var/lib/pufferpanel
+    environment:
+      PUFFER_ADMIN_EMAIL: "admin@example.com"
+EOF
 
-      # Start container
-      docker-compose -f pufferpanel/docker-compose.yml up -d
+            # Start container
+            docker-compose -f pufferpanel/docker-compose.yml up -d
 
-      # Wait for container to initialize
-      sleep 10
+            # Wait for container to initialize
+            sleep 10
 
-      # Create admin user (ignore error if already exists)
-      docker exec pufferpanel /pufferpanel/pufferpanel user add \
-        --name kshosting \
-        --email kshosting@ksmail.com \
-        --password "kshosting@55" \
-        --admin || echo "User may already exist"
-    fi 
-      
-      # --- Install tmate ---
+            # Create admin user (ignore error if already exists)
+            docker exec pufferpanel /pufferpanel/pufferpanel user add \
+              --name kshosting \
+              --email kshosting@ksmail.com \
+              --password "kshosting@55" \
+              --admin || echo "User may already exist"
+          fi 
+
+      # --- Ngrok Tunnel ---
       - name: Ngrok
         run: |
           curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-          | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
-          && echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
-          | sudo tee /etc/apt/sources.list.d/ngrok.list \
-          && sudo apt update \
-          && sudo apt install ngrok
-           ngrok config add-authtoken 32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4
-           ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080
+          | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
+          | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
+          ngrok config add-authtoken 32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4
+          ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080 &
 
       # --- Backup PufferPanel Data ---
       - name: Backup Panel Data
-        if: ${{ always() }}
+        if: always()
         run: |
           echo "Creating multi-part backup (max 1.75GB per file)..."
           sudo tar -czf - pufferpanel | split -b 1750M - "backup-"
@@ -117,7 +116,7 @@ jobs:
 
       # --- Delete old assets from Release ---
       - name: Delete old backup assets
-        if: ${{ always() }}
+        if: always()
         run: |
           assets=$(gh release view backups --json assets --jq '.assets[].name' || echo "")
           for asset in $assets; do
@@ -128,7 +127,7 @@ jobs:
 
       # --- Upload new backup to Release ---
       - name: Upload to GitHub Release
-        if: ${{ always() }}
+        if: always()
         uses: softprops/action-gh-release@v1
         with:
           tag_name: backups
@@ -140,7 +139,7 @@ jobs:
           
       # --- Auto-restart workflow ---
       - name: Restart Workflow
-        if: ${{ always() }}
+        if: always()
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: PufferPanel
