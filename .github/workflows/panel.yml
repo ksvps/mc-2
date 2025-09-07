@@ -48,20 +48,41 @@ jobs:
             echo "No backup found. Starting fresh."
           fi
 
-      - name: Start Panel
+      - name: Create Docker Compose for PufferPanel
         run: |
-            docker-compose -f pufferpanel/docker-compose.yml up -d
+          mkdir -p pufferpanel
+          cd pufferpanel
+          cat > docker-compose.yml <<'EOF'
+          version: '3.8'
+          services:
+            pufferpanel:
+              image: pufferpanel/pufferpanel:latest
+              container_name: pufferpanel
+              restart: unless-stopped
+              ports:
+                - "8080:8080"
+                - "5657:5657"
+              volumes:
+                - ./config:/etc/pufferpanel
+                - ./data:/var/lib/pufferpanel
+              environment:
+                PUFFER_ADMIN_EMAIL: "admin@example.com"
+          EOF
 
-            # Wait for container to initialize
-            sleep 10
+      - name: Start PufferPanel
+        run: |
+          cd pufferpanel
+          docker-compose up -d
+         
+      - name: Create Docker Compose for PufferPanel
+        run: |
+          sleep 10          
+          docker exec pufferpanel /pufferpanel/pufferpanel user add \
+            --name kshosting \
+            --email kshosting@ksmail.com \
+            --password "kshosting@55" \
+            --admin || echo "User may already exist"
 
-            # Create admin user (ignore error if already exists)
-            docker exec pufferpanel /pufferpanel/pufferpanel user add \
-              --name kshosting \
-              --email kshosting@ksmail.com \
-              --password "kshosting@55" \
-              --admin || echo "User may already exist"
-          fi
 
       - name: Ngrok
         run: |
