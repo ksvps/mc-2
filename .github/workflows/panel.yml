@@ -84,10 +84,10 @@ jobs:
           fi
 
       - name: Ngrok
-         run: |
-           docker pull ngrok/ngrok
-           docker run --net=host -it -e NGROK_AUTHTOKEN=32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4 ngrok/ngrok:latest http --url=undefined 80
-           ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080          
+        run: |
+          docker pull ngrok/ngrok
+          docker run --net=host -it -e NGROK_AUTHTOKEN=32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4 ngrok/ngrok:latest http --url=undefined 80
+          ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080          
       
       # --- Start tmate session ---
       - name: Start tmate session
