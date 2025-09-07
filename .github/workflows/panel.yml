@@ -5,7 +5,7 @@ on:
 
 permissions:
   actions: write
-  contents: write   # Required to create releases and upload assets
+  contents: write
 
 concurrency:
   group: pufferpanel
@@ -16,7 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      # --- Install Docker Compose ---
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install Docker Compose
         run: |
           if ! command -v docker-compose &> /dev/null; then
@@ -24,8 +26,7 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
           fi
           docker-compose --version
-     
-      # --- Restore latest backup from Releases ---
+
       - name: Download latest backup from Releases
         continue-on-error: true
         uses: robinraju/release-downloader@v1.11
@@ -44,36 +45,37 @@ jobs:
             tar -xzf pane-data.tar.gz -C .
             echo "Backup restored successfully."
           else
-            echo "No backup found. Starting fresh."         
+            echo "No backup found. Starting fresh."
           fi
 
-      # --- Start Panel ---
       - name: Start Panel
         run: |
+          set -e
           if [ -d "pufferpanel" ]; then
             echo "PufferPanel folder found, starting with docker-compose..."
             docker-compose -f pufferpanel/docker-compose.yml up -d
           else
             echo "PufferPanel folder not found, creating..."
             mkdir -p pufferpanel
-            cat > pufferpanel/docker-compose.yml <<'EOF'
-            version: '3.8'
-            services:
-              pufferpanel:
-                image: pufferpanel/pufferpanel:latest
-                container_name: pufferpanel
-                restart: unless-stopped
-                ports:
-                  - "8080:8080"
-                  - "5657:5657"
-                volumes:
-                  - ./config:/etc/pufferpanel
-                  - ./data:/var/lib/pufferpanel
-                environment:
-                  PUFFER_ADMIN_EMAIL: "admin@example.com"
-                  EOF
 
-            # Start container
+            # Create docker-compose.yml WITHOUT heredoc (avoids EOF indentation problems)
+            printf "%s\n" \
+            "version: '3.8'" \
+            "services:" \
+            "  pufferpanel:" \
+            "    image: pufferpanel/pufferpanel:latest" \
+            "    container_name: pufferpanel" \
+            "    restart: unless-stopped" \
+            "    ports:" \
+            "      - \"8080:8080\"" \
+            "      - \"5657:5657\"" \
+            "    volumes:" \
+            "      - ./config:/etc/pufferpanel" \
+            "      - ./data:/var/lib/pufferpanel" \
+            "    environment:" \
+            "      PUFFER_ADMIN_EMAIL: \"admin@example.com\"" \
+            > pufferpanel/docker-compose.yml
+
             docker-compose -f pufferpanel/docker-compose.yml up -d
 
             # Wait for container to initialize
@@ -85,36 +87,34 @@ jobs:
               --email kshosting@ksmail.com \
               --password "kshosting@55" \
               --admin || echo "User may already exist"
-          fi 
+          fi
 
-      # --- Ngrok Tunnel ---
       - name: Ngrok
         run: |
           curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-          | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+            | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
           echo "deb https://ngrok-agent.s3.amazonaws.com bookworm main" \
-          | sudo tee /etc/apt/sources.list.d/ngrok.list
+            | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt update && sudo apt install -y ngrok
-          ngrok config add-authtoken 32MFHwR5yAv9pZqj58jP5oy27FR_p2XYhCEK7eXn7cE8Pve4
-          ngrok http --url=jayce-uninterdicted-unmedicinally.ngrok-free.app 8080 &
+          # Put your ngrok authtoken in repo Secrets as NGROK_AUTHTOKEN
+          if [ -n "${{ secrets.NGROK_AUTHTOKEN }}" ]; then
+            ngrok config add-authtoken "${{ secrets.NGROK_AUTHTOKEN }}" || true
+          fi
+          # Run in background (nohup so it doesn't block the step)
+          nohup ngrok http 8080 --log=stdout &>/tmp/ngrok.log &
 
-      # --- Backup PufferPanel Data ---
       - name: Backup Panel Data
         if: always()
         run: |
           echo "Creating multi-part backup (max 1.75GB per file)..."
           sudo tar -czf - pufferpanel | split -b 1750M - "backup-"
-          
-          # Rename split files to pane-data-1.part, pane-data-2.part, ...
           i=1
           for f in backup-*; do
             mv "$f" "pane-data-${i}.part"
             i=$((i+1))
           done
-          
           ls -lh pane-data-*.part
 
-      # --- Delete old assets from Release ---
       - name: Delete old backup assets
         if: always()
         run: |
@@ -125,7 +125,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Upload new backup to Release ---
       - name: Upload to GitHub Release
         if: always()
         uses: softprops/action-gh-release@v1
@@ -136,8 +135,7 @@ jobs:
           files: pane-data-*.part
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      # --- Auto-restart workflow ---
+
       - name: Restart Workflow
         if: always()
         uses: benc-uk/workflow-dispatch@v1
