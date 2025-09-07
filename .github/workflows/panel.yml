@@ -57,21 +57,21 @@ jobs:
             echo "PufferPanel folder not found, creating..."
             mkdir -p pufferpanel
             cat > pufferpanel/docker-compose.yml <<'EOF'
-version: '3.8'
-services:
-  pufferpanel:
-    image: pufferpanel/pufferpanel:latest
-    container_name: pufferpanel
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./config:/etc/pufferpanel
-      - ./data:/var/lib/pufferpanel
-    environment:
-      PUFFER_ADMIN_EMAIL: "admin@example.com"
-EOF
+            version: '3.8'
+            services:
+              pufferpanel:
+                image: pufferpanel/pufferpanel:latest
+                container_name: pufferpanel
+                restart: unless-stopped
+                ports:
+                  - "8080:8080"
+                  - "5657:5657"
+                volumes:
+                  - ./config:/etc/pufferpanel
+                  - ./data:/var/lib/pufferpanel
+                environment:
+                  PUFFER_ADMIN_EMAIL: "admin@example.com"
+                  EOF
 
             # Start container
             docker-compose -f pufferpanel/docker-compose.yml up -d
